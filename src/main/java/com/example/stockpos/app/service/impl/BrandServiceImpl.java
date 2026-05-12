@@ -9,7 +9,7 @@ import com.example.stockpos.app.dto.common.response.PaginationMeta;
 import com.example.stockpos.app.dto.common.response.PaginationResponse;
 import com.example.stockpos.app.dto.brand.response.BrandResponse;
 import com.example.stockpos.app.exception.common.DuplicateResourceException;
-import com.example.stockpos.app.exception.brand.BrandNotFoundException;
+import com.example.stockpos.app.exception.common.ResourceNotFoundException;
 import com.example.stockpos.app.models.Brand;
 import com.example.stockpos.app.models.User;
 import com.example.stockpos.app.repository.BrandRepository;
@@ -71,7 +71,7 @@ public class BrandServiceImpl implements BrandService {
     public BrandResponse findById(Integer id) {
         return brandRepository.findById(id)
                 .map(BrandResponse::fromEntity)
-                .orElseThrow(() -> new BrandNotFoundException(id));
+                .orElseThrow(() -> new ResourceNotFoundException("Brand not found with ID: " + id));
     }
 
     @Override
@@ -110,7 +110,7 @@ public class BrandServiceImpl implements BrandService {
     @Transactional
     public BrandResponse update(UpdateBrandRequest request) {
         Brand brand = brandRepository.findById(request.getId())
-                .orElseThrow(() -> new BrandNotFoundException(request.getId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Brand not found with ID: " + request.getId()));
 
         if (request.getName() != null && !request.getName().equals(brand.getName())) {
             if (brandRepository.existsByName(request.getName())) {
@@ -144,7 +144,7 @@ public class BrandServiceImpl implements BrandService {
     @Transactional
     public void updateStatus(UpdateBrandStatusRequest request) {
         Brand brand = brandRepository.findById(request.getId())
-                .orElseThrow(() -> new BrandNotFoundException(request.getId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Brand not found with ID: " + request.getId()));
         brand.setStatus(request.getStatus());
         brandRepository.save(brand);
     }
@@ -153,7 +153,7 @@ public class BrandServiceImpl implements BrandService {
     @Transactional
     public void softDelete(IdRequest request) {
         Brand brand = brandRepository.findById(request.getId())
-                .orElseThrow(() -> new BrandNotFoundException(request.getId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Brand not found with ID: " + request.getId()));
         
         brand.setDeleted(true);
         brand.setDeletedAt(LocalDateTime.now());
@@ -171,7 +171,7 @@ public class BrandServiceImpl implements BrandService {
     @Transactional
     public void forceDelete(IdRequest request) {
         if (!brandRepository.existsById(request.getId())) {
-            throw new BrandNotFoundException(request.getId());
+            throw new ResourceNotFoundException("Brand not found with ID: " + request.getId());
         }
         brandRepository.deleteById(request.getId());
     }

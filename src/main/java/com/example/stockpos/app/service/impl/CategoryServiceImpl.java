@@ -9,7 +9,7 @@ import com.example.stockpos.app.dto.common.response.PaginationMeta;
 import com.example.stockpos.app.dto.common.response.PaginationResponse;
 import com.example.stockpos.app.dto.category.response.CategoryResponse;
 import com.example.stockpos.app.exception.common.DuplicateResourceException;
-import com.example.stockpos.app.exception.category.CategoryNotFoundException;
+import com.example.stockpos.app.exception.common.ResourceNotFoundException;
 import com.example.stockpos.app.models.Category;
 import com.example.stockpos.app.repository.CategoryRepository;
 import com.example.stockpos.app.service.CategoryService;
@@ -76,7 +76,7 @@ public class CategoryServiceImpl implements CategoryService {
     public CategoryResponse findById(Integer id) {
         return categoryRepository.findById(id)
                 .map(CategoryResponse::fromEntity)
-                .orElseThrow(() -> new CategoryNotFoundException(id));
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found with ID: " + id));
     }
 
     @Override
@@ -115,7 +115,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Transactional
     public CategoryResponse update(UpdateCategoryRequest request) {
         Category category = categoryRepository.findById(request.getId())
-                .orElseThrow(() -> new CategoryNotFoundException(request.getId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found with ID: " + request.getId()));
 
         if (request.getName() != null && !request.getName().equals(category.getName())) {
             if (categoryRepository.existsByName(request.getName())) {
@@ -149,7 +149,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Transactional
     public void updateStatus(UpdateCategoryStatusRequest request) {
         Category category = categoryRepository.findById(request.getId())
-                .orElseThrow(() -> new CategoryNotFoundException(request.getId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found with ID: " + request.getId()));
         category.setStatus(request.getStatus());
         categoryRepository.save(category);
     }
@@ -158,7 +158,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Transactional
     public void softDelete(IdRequest request) {
         Category category = categoryRepository.findById(request.getId())
-                .orElseThrow(() -> new CategoryNotFoundException(request.getId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found with ID: " + request.getId()));
         
         category.setDeleted(true);
         category.setDeletedAt(LocalDateTime.now());
@@ -176,7 +176,7 @@ public class CategoryServiceImpl implements CategoryService {
     @Transactional
     public void forceDelete(IdRequest request) {
         if (!categoryRepository.existsById(request.getId())) {
-            throw new CategoryNotFoundException(request.getId());
+            throw new ResourceNotFoundException("Category not found with ID: " + request.getId());
         }
         categoryRepository.deleteById(request.getId());
     }

@@ -1,0 +1,113 @@
+package com.example.springbootboilerplate.app.service.impl;
+
+import com.example.springbootboilerplate.app.dto.common.request.PaginationRequest;
+import com.example.springbootboilerplate.app.dto.permission.request.PermissionRequest;
+import com.example.springbootboilerplate.app.dto.common.response.PaginationMeta;
+import com.example.springbootboilerplate.app.dto.common.response.PaginationResponse;
+import com.example.springbootboilerplate.app.dto.permission.response.PermissionResponse;
+import com.example.springbootboilerplate.app.exception.common.DuplicateResourceException;
+import com.example.springbootboilerplate.app.exception.common.ResourceNotFoundException;
+import com.example.springbootboilerplate.app.exception.common.ResourceInUseException;
+import com.example.springbootboilerplate.app.models.Permission;
+import com.example.springbootboilerplate.app.repository.PermissionRepository;
+import com.example.springbootboilerplate.app.repository.RolePermissionRepository;
+import com.example.springbootboilerplate.app.service.PermissionService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class PermissionServiceImpl implements PermissionService {
+
+    private final PermissionRepository repository;
+    private final RolePermissionRepository rolePermissionRepository;
+
+    @Override
+    public List<PermissionResponse> findAll() {
+        return repository.findAll().stream()
+                .map(PermissionResponse::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public PaginationResponse<PermissionResponse> findAllWithPagination(PaginationRequest request) {
+        // Build filters dynamically
+        Specification<Permission> spec = (root, query, cb) -> cb.conjunction();
+
+        if (request.getSearch() != null && !request.getSearch().isEmpty()) {
+            String keyword = "%" + request.getSearch().toLowerCase() + "%";
+            spec = spec.and((root, query, cb) -> cb.or(
+                    cb.like(cb.lower(root.get("name")), keyword),
+                    cb.like(cb.lower(root.get("displayName")), keyword),
+                    cb.like(cb.lower(root.get("group")), keyword)
+            ));
+        }
+
+        // Fetch and return
+        Page<Permission> page = repository.findAll(spec, request.toPageable());
+        return PaginationResponse.<PermissionResponse>builder()
+                .data(page.getContent().stream().map(PermissionResponse::fromEntity).collect(Collectors.toList()))
+                .meta(PaginationMeta.fromPage(page))
+                .build();
+    }
+
+    @Override
+    public PermissionResponse findById(Integer id) {
+        return repository.findById(id)
+                .map(PermissionResponse::fromEntity)
+                .orElseThrow(() -> new ResourceNotFoundException("Permission not found with ID: " + id));
+    }
+
+    @Override
+    public PermissionResponse create(PermissionRequest.CreatePermissionRequest request) {
+        if (repository.existsByName(request.getName())) {
+            throw new DuplicateResourceException("Permission with name " + request.getName() + " already exists");
+        }
+
+        Permission permission = Permission.builder()
+                .name(request.getName())
+                .displayName(request.getDisplayName())
+                .group(request.getGroup())
+                .sort(request.getSort())
+                .build();
+        return PermissionResponse.fromEntity(repository.save(permission));
+    }
+
+    @Override
+    public PermissionResponse update(Integer id, PermissionRequest.UpdatePermissionRequest request) {
+        Permission permission = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Permission not found with ID: " + id));
+        
+        // Check if new name is already taken by another permission
+        repository.findByName(request.getName()).ifPresent(existingPermission -> {
+            if (!existingPermission.getId().equals(id)) {
+                throw new DuplicateResourceException("Permission with name " + request.getName() + " already exists");
+            }
+        });
+
+        permission.setName(request.getName());
+        permission.setDisplayName(request.getDisplayName());
+        permission.setGroup(request.getGroup());
+        permission.setSort(request.getSort());
+        
+        return PermissionResponse.fromEntity(repository.save(permission));
+    }
+
+    @Override
+    public void delete(Integer id) {
+        if (!repository.existsById(id)) {
+            throw new ResourceNotFoundException("Permission not found with ID: " + id);
+        }
+
+        if (rolePermissionRepository.existsByPermission_Id(id)) {
+            throw new ResourceInUseException("Cannot delete permission because it is currently assigned to one or more roles");
+        }
+
+        repository.deleteById(id);
+    }
+}

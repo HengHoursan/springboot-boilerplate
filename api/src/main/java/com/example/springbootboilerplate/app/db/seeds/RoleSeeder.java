@@ -1,0 +1,52 @@
+package com.example.springbootboilerplate.app.db.seeds;
+
+import com.example.springbootboilerplate.app.models.Permission;
+import com.example.springbootboilerplate.app.models.Role;
+import com.example.springbootboilerplate.app.models.RolePermission;
+import com.example.springbootboilerplate.app.repository.PermissionRepository;
+import com.example.springbootboilerplate.app.repository.RoleRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Component
+@RequiredArgsConstructor
+public class RoleSeeder {
+    private final RoleRepository roleRepository;
+    private final PermissionRepository permissionRepository;
+
+    public void seed() {
+        if (roleRepository.count() == 0) {
+            List<Permission> allPermissions = permissionRepository.findAll();
+
+            // ADMIN Role
+            Role adminRole = Role.builder()
+                .name("ADMIN")
+                .displayName("Administrator")
+                .status(true)
+                .build();
+            
+            List<RolePermission> adminPermissions = allPermissions.stream()
+                .map(permission -> RolePermission.builder()
+                        .role(adminRole)
+                        .permission(permission)
+                        .build())
+                .collect(Collectors.toList());
+            
+            adminRole.setRolePermissions(adminPermissions);
+            roleRepository.save(adminRole);
+
+            // USER Role (minimal permissions)
+            Role userRole = Role.builder()
+                .name("USER")
+                .displayName("Standard User")
+                .status(true)
+                .rolePermissions(new ArrayList<>())
+                .build();
+            roleRepository.save(userRole);
+        }
+    }
+}
